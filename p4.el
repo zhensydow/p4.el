@@ -129,7 +129,7 @@ when they change on disk."
                       labels labelsync lock logout move opened passwd print
                       reconcile reopen revert set shelve status submit sync
                       tickets unlock unshelve update user users where)))
-          (cons 'set (loop for cmd in cmds collect (list 'const cmd))))
+          (cons 'set (cl-loop for cmd in cmds collect (list 'const cmd))))
   :group 'p4)
 
 (defcustom p4-password-source nil
@@ -563,8 +563,8 @@ if there is no setting."
 client settings."
   (append
    (p4-with-set-output
-     (loop while (re-search-forward "^P4[A-Z]+=\\S-+" nil t)
-           collect (match-string 0)))
+     (cl-loop while (re-search-forward "^P4[A-Z]+=\\S-+" nil t)
+              collect (match-string 0)))
    ;; Default values for P4PORT and P4USER may be needed by
    ;; p4-password-source even if not supplied by "p4 set". See:
    ;; http://www.perforce.com/perforce/doc.current/manuals/cmdref/P4PORT.html
@@ -673,23 +673,23 @@ exact match."
 
 (defun p4-dirs-and-attributes (dir)
   (let ((now (current-time)))
-    (loop for f in (p4-output-matches (list "dirs" (concat dir "*"))
-                                      "^//[^ \n]+$")
-          collect (list f t 0 0 0 now now now 0 "dr--r--r--" nil 0 0))))
+    (cl-loop for f in (p4-output-matches (list "dirs" (concat dir "*"))
+					 "^//[^ \n]+$")
+             collect (list f t 0 0 0 now now now 0 "dr--r--r--" nil 0 0))))
 
 (defun p4-files-and-attributes (dir)
   (let ((now (current-time)))
-    (loop for f in (p4-output-matches (list "files" (concat dir "*"))
-                                      "^\\(//[^#\n]+#[1-9][0-9]*\\) - " 1)
-          collect (list f nil 0 0 0 now now now 0 "-r--r--r--" nil 0 0))))
+    (cl-loop for f in (p4-output-matches (list "files" (concat dir "*"))
+					 "^\\(//[^#\n]+#[1-9][0-9]*\\) - " 1)
+             collect (list f nil 0 0 0 now now now 0 "-r--r--r--" nil 0 0))))
 
 (defun p4-directory-files-and-attributes (dir &optional full match nosort id-format)
   (let* ((from (length dir))
-         (files (loop for f in (append (p4-dirs-and-attributes dir)
-                                       (p4-files-and-attributes dir))
-                      unless (and match (not (string-match match (first f))))
-                      collect (if full f
-                                (cons (substring (first f) from) (cdr f))))))
+         (files (cl-loop for f in (append (p4-dirs-and-attributes dir)
+					  (p4-files-and-attributes dir))
+			 unless (and match (not (string-match match (first f))))
+			 collect (if full f
+                                   (cons (substring (first f) from) (cdr f))))))
     (if nosort files
       (sort files 'file-attributes-lessp))))
 
@@ -706,10 +706,10 @@ exact match."
 
 (defun p4-insert-directory (file switches &optional wildcard full-directory-p)
   (message "%s" (list file switches wildcard full-directory-p))
-  (loop for f in (p4-directory-files-and-attributes file)
-        do (insert (format "  %s   - -  -  %d %s %s\n" (nth 9 f)
-                           (nth 8 f) (format-time-string "%b %e %Y" (nth 6 f))
-                           (nth 0 f)))))
+  (cl-loop for f in (p4-directory-files-and-attributes file)
+           do (insert (format "  %s   - -  -  %d %s %s\n" (nth 9 f)
+                              (nth 8 f) (format-time-string "%b %e %Y" (nth 6 f))
+                              (nth 0 f)))))
 
 (defun p4-insert-file-contents (filename &optional visit beg end replace)
   (unless (zerop (p4-run (list "print" "-q" filename)))
@@ -722,7 +722,7 @@ exact match."
   (setq buffer-read-only t))
 
 (defun p4-file-name-handler (operation &rest args)
-  (case operation
+  (cl-case operation
     ((expand-file-name file-truename substitute-in-file-name)
      (car args))
     (directory-files (apply 'p4-directory-files args))
@@ -763,10 +763,10 @@ exact match."
   (let ((stale (time-subtract (current-time)
                               (seconds-to-time p4-cleanup-time))))
     (setf p4-filespec-buffer-cache
-          (loop for c in p4-filespec-buffer-cache
-                when (and (time-less-p stale (second c))
-                          (buffer-live-p (third c)))
-                collect c))))
+          (cl-loop for c in p4-filespec-buffer-cache
+                   when (and (time-less-p stale (second c))
+                             (buffer-live-p (third c)))
+                   collect c))))
 
 (defun p4-visit-filespec (filespec)
   "Visit FILESPEC in some buffer and return the buffer."
@@ -1156,8 +1156,8 @@ and arguments taken from the local variable `p4-process-args'."
   "Return a suitable buffer name for the p4 ARGS command."
   (format "*P4 %s*" (p4-join-list args)))
 
-(defun* p4-call-command (cmd &optional args &key mode callback after-show
-                             (auto-login t) synchronous pop-up-output)
+(cl-defun p4-call-command (cmd &optional args &key mode callback after-show
+                               (auto-login t) synchronous pop-up-output)
   "Start a Perforce command.
 First (required) argument CMD is the p4 command to run.
 Second (optional) argument ARGS is a list of arguments to the p4 command.
@@ -1200,9 +1200,9 @@ NIL if the form has no value for that key."
       (if (looking-at "[ \t]\\(.+\\)")
           (match-string-no-properties 1)
         (forward-line 1)
-        (loop while (looking-at "[ \t]\\(.*\\(?:\n\\|\\'\\)\\)")
-              do (forward-line 1)
-              concat (match-string-no-properties 1))))))
+        (cl-loop while (looking-at "[ \t]\\(.*\\(?:\n\\|\\'\\)\\)")
+		 do (forward-line 1)
+		 concat (match-string-no-properties 1))))))
 
 (defun p4-form-callback (regexp cmd success-callback failure-callback
                                 mode head-text)
@@ -1223,12 +1223,12 @@ NIL if the form has no value for that key."
   (when regexp (re-search-forward regexp nil t))
   (message "C-c C-c to finish editing and exit buffer."))
 
-(defun* p4-form-command (cmd &optional args &key move-to commit-cmd
-                             success-callback
-                             (failure-callback
-                              'p4-form-commit-failure-callback-default)
-                             (mode 'p4-form-mode)
-                             (head-text p4-form-head-text))
+(cl-defun p4-form-command (cmd &optional args &key move-to commit-cmd
+                               success-callback
+                               (failure-callback
+				'p4-form-commit-failure-callback-default)
+                               (mode 'p4-form-mode)
+                               (head-text p4-form-head-text))
   "Maybe start a form-editing session.
 cmd is the p4 command to run \(it must take -o and output a form\).
 args is a list of arguments to pass to the p4 command.
@@ -1323,7 +1323,7 @@ for those settings."
       (push pending p4-update-status-pending-alist))
     (when force
       (setf (second pending) (seconds-to-time 0)))
-    (pushnew buffer (third pending))))
+    (cl-pushnew buffer (third pending))))
 
 (defun p4-update-status-pending-sort ()
   "Tidy up `p4-update-status-pending-alist': discard buffers that
@@ -1331,14 +1331,14 @@ no longer exist; discard servers for which no updates are
 pending; and sort pending updates into order by time of last
 update (oldest first)."
   (setq p4-update-status-pending-alist
-        (sort (loop for pending in p4-update-status-pending-alist
-                    do (setf (third pending)
-                             (loop for b in (third pending)
-                                   if (and (buffer-live-p b)
-                                           (buffer-file-name b))
-                                   collect b))
-                    if (third pending)
-                    collect pending)
+        (sort (cl-loop for pending in p4-update-status-pending-alist
+                       do (setf (third pending)
+				(cl-loop for b in (third pending)
+					 if (and (buffer-live-p b)
+						 (buffer-file-name b))
+					 collect b))
+                       if (third pending)
+                       collect pending)
               (lambda (a b) (time-less-p (second a) (second b))))))
 
 (defun p4-update-mode (buffer status revision)
@@ -1351,7 +1351,7 @@ number is not known or not applicable."
     (with-current-buffer buffer
       (setq p4-vc-status status
             p4-vc-revision revision)
-      (let ((new-mode (case status
+      (let ((new-mode (cl-case status
                         (sync (format " P4:%d" revision))
                         (depot (format " P4:%s" status))
                         ((add branch edit integrate) (format " P4:%s" status))
@@ -1410,9 +1410,9 @@ number is not known or not applicable."
               (set-process-query-on-exit-flag process nil)
               (set-process-sentinel process 'p4-update-status-sentinel-2)
               (p4-set-process-coding-system process)
-              (loop for b in have-buffers
-                    do (process-send-string process (p4-buffer-file-name b))
-                    do (process-send-string process "\n"))
+              (cl-loop for b in have-buffers
+                       do (process-send-string process (p4-buffer-file-name b))
+                       do (process-send-string process "\n"))
               (process-send-eof process))
           (kill-buffer (current-buffer))
           (p4-maybe-start-update-statuses))))))
@@ -1448,9 +1448,9 @@ an update is running already."
             (p4-set-process-coding-system process)
             (setq p4-process-buffers (copy-sequence buffers))
             (setq p4-process-pending pending)
-            (loop for b in buffers
-                  do (process-send-string process (p4-buffer-file-name b))
-                  do (process-send-string process "\n"))
+            (cl-loop for b in buffers
+                     do (process-send-string process (p4-buffer-file-name b))
+                     do (process-send-string process "\n"))
             (process-send-eof process)))))))
 
 (defun p4-update-status (&optional force)
@@ -1505,7 +1505,7 @@ off-line, toggle the status check on/off when opening files."
 (defun p4-toggle-read-only ()
   "Toggle between `p4-edit' and `p4-revert'."
   (interactive)
-  (case p4-vc-status
+  (cl-case p4-vc-status
     (edit (p4-revert))
     (sync (p4-edit))))
 
@@ -1573,7 +1573,7 @@ changelevel."
 
 ;;; Defining Perforce command interfaces:
 
-(eval-when (compile)
+(cl-eval-when (compile)
   ;; When byte-compiling, get help text by running "p4 help cmd".
   (defun p4-help-text (cmd text)
     (with-temp-buffer
@@ -1583,7 +1583,7 @@ changelevel."
           (concat text "\n" (buffer-substring (point-min) (point-max)))
         text))))
 
-(eval-when (eval load)
+(cl-eval-when (eval load)
   ;; When interpreting, don't run "p4 help cmd" (takes too long).
   (defun p4-help-text (cmd text) text))
 
@@ -1894,10 +1894,10 @@ continuation lines); show it in a pop-up window otherwise."
   (p4-call-command "help" args
    :callback (lambda ()
                (let ((case-fold-search))
-                 (loop for re in '("\\<p4\\s-+help\\s-+\\([a-z][a-z0-9]*\\)\\>"
-                                   "'p4\\(?:\\s-+-[a-z]+\\)*\\s-+\\([a-z][a-z0-9]*\\)\\>"
-                                   "^\t\\([a-z][a-z0-9]*\\) +[A-Z]")
-                       do (p4-regexp-create-links re 'help))))))
+                 (cl-loop for re in '("\\<p4\\s-+help\\s-+\\([a-z][a-z0-9]*\\)\\>"
+                                      "'p4\\(?:\\s-+-[a-z]+\\)*\\s-+\\([a-z][a-z0-9]*\\)\\>"
+                                      "^\t\\([a-z][a-z0-9]*\\) +[A-Z]")
+			  do (p4-regexp-create-links re 'help))))))
 
 (defp4cmd p4-info ()
   "info"
@@ -2536,7 +2536,7 @@ argument DELETE-FILESPEC is non-NIL, remove the first line."
 (defalias 'p4-annotate-line 'p4-annotate)
 (defalias 'p4-blame-line 'p4-annotate)
 
-(defstruct p4-file-revision filespec filename revision change date user description links desc)
+(cl-defstruct p4-file-revision filespec filename revision change date user description links desc)
 
 (defun p4-link (width value properties &optional help-echo)
   "Insert VALUE, right-aligned, into a field of WIDTH.
@@ -2618,8 +2618,8 @@ first)."
   (let ((args (list "annotate" "-i" "-c" "-q" filespec)))
     (message "Running p4 %s..." (p4-join-list args))
     (p4-with-temp-buffer args
-      (loop while (re-search-forward "^\\([1-9][0-9]*\\):" nil t)
-            collect (string-to-number (match-string 1))))))
+      (cl-loop while (re-search-forward "^\\([1-9][0-9]*\\):" nil t)
+               collect (string-to-number (match-string 1))))))
 
 (defun p4-annotate-changes-by-patching (filespec change-alist)
   "Return a list of change numbers, one for each line of FILESPEC.
@@ -2637,36 +2637,36 @@ only be used when p4 annotate is unavailable."
       (p4-run (list "print" "-q" (p4-file-revision-filespec base)))
       (while (re-search-forward ".*\n" nil t)
         (replace-match base-change-string t t))
-      (loop for (c1 . f1) in change-alist
-            and (c2 . f2) in (cdr change-alist)
-            for change-string = (format "%d\n" c2)
-            do (p4-with-temp-buffer
-                   (list "diff2"
-                         (p4-file-revision-filespec f1)
-                         (p4-file-revision-filespec f2))
-                 (message "Patching for change %d..." c2)
-                 (goto-char (point-max))
-                 (while (re-search-backward p4-blame-revision-regex nil t)
-                   (let ((la (string-to-number (match-string 1)))
-                         (lb (string-to-number (match-string 2)))
-                         (op (match-string 3))
-                         (ra (string-to-number (match-string 4)))
-                         (rb (string-to-number (match-string 5))))
-                     (when (= lb 0) (setq lb la))
-                     (when (= rb 0) (setq rb ra))
-                     (cond ((string= op "a") (incf la))
-                           ((string= op "d") (incf ra)))
-                     (with-current-buffer buffer
-                       (p4-goto-line la)
-                       (delete-region (point)
-                                      (progn (forward-line (1+ (- lb la)))
-                                             (point)))
-                       (while (<= ra rb)
-                         (insert change-string)
-                         (incf ra)))))))
+      (cl-loop for (c1 . f1) in change-alist
+               and (c2 . f2) in (cdr change-alist)
+               for change-string = (format "%d\n" c2)
+               do (p4-with-temp-buffer
+                      (list "diff2"
+                            (p4-file-revision-filespec f1)
+                            (p4-file-revision-filespec f2))
+                    (message "Patching for change %d..." c2)
+                    (goto-char (point-max))
+                    (while (re-search-backward p4-blame-revision-regex nil t)
+                      (let ((la (string-to-number (match-string 1)))
+                            (lb (string-to-number (match-string 2)))
+                            (op (match-string 3))
+                            (ra (string-to-number (match-string 4)))
+                            (rb (string-to-number (match-string 5))))
+			(when (= lb 0) (setq lb la))
+			(when (= rb 0) (setq rb ra))
+			(cond ((string= op "a") (cl-incf la))
+                              ((string= op "d") (cl-incf ra)))
+			(with-current-buffer buffer
+			  (p4-goto-line la)
+			  (delete-region (point)
+					 (progn (forward-line (1+ (- lb la)))
+						(point)))
+			  (while (<= ra rb)
+                            (insert change-string)
+                            (cl-incf ra)))))))
       (goto-char (point-min))
-      (loop while (re-search-forward "[1-9][0-9]*" nil t)
-            collect (string-to-number (match-string 0))))))
+      (cl-loop while (re-search-forward "[1-9][0-9]*" nil t)
+               collect (string-to-number (match-string 0))))))
 
 (defun p4-annotate-internal (filespec &optional src-line)
   ;; make sure the filespec is unambiguous
@@ -2693,16 +2693,16 @@ only be used when p4 annotate is unavailable."
             (p4-fontify-print-buffer)
             (forward-line 1)
             (dolist (change line-changes)
-              (incf current-line)
+              (cl-incf current-line)
               (let ((percent (/ (* current-line 100) lines)))
                 (when (> percent current-percent)
                   (message "Formatting...%d%%" percent)
-                  (incf current-percent 10)))
+                  (cl-incf current-percent 10)))
               (if (eql change current-change)
-                  (incf current-repeats)
+                  (cl-incf current-repeats)
                 (setq current-repeats 0))
               (let ((rev (cdr (assoc change file-change-alist))))
-                (case current-repeats
+                (cl-case current-repeats
                   (0 (insert (p4-file-revision-annotate-links rev)))
                   (1 (insert (p4-file-revision-annotate-desc rev)))
                   (t (insert (format "%33s: " "")))))
@@ -2720,7 +2720,7 @@ only be used when p4 annotate is unavailable."
 
 ;;; Completion:
 
-(defstruct p4-completion
+(cl-defstruct p4-completion
   cache                ; association list mapping query to list of results.
   cache-exact          ; cache lookups must be exact (not prefix matches).
   history              ; symbol naming the history variable.
@@ -2806,9 +2806,9 @@ the depot."
 
 (defun p4-fetch-filespec-completions (completion string)
   "Fetch file and directory completions for STRING from the depot."
-  (append (loop for dir in (p4-output-matches (list "dirs" (concat string "*"))
-                                              "^//[^ \n]+$")
-                collect (concat dir "/"))
+  (append (cl-loop for dir in (p4-output-matches (list "dirs" (concat string "*"))
+						 "^//[^ \n]+$")
+                   collect (concat dir "/"))
           (p4-output-matches (list "files" (concat string "*"))
                              "^\\(//[^#\n]+\\)#[1-9][0-9]* - " 1)))
 
@@ -2845,9 +2845,9 @@ hash table."
   (let ((stale (time-subtract (current-time)
                               (seconds-to-time p4-cleanup-time))))
     (setf (p4-completion-cache completion)
-          (loop for c in (p4-completion-cache completion)
-                when (time-less-p stale (second c))
-                collect c))))
+          (cl-loop for c in (p4-completion-cache completion)
+                   when (time-less-p stale (second c))
+                   collect c))))
 
 (defun p4-complete (completion string)
   "Return list of items of type COMPLETION that are possible
@@ -2864,13 +2864,13 @@ and update the cache accordingly."
           (third cached))
       ;; Any hit on a prefix (unless :cache-exact)
       (or (and (not (p4-completion-cache-exact completion))
-               (loop for (query timestamp results annotations) in cache
-                     for best-results = nil
-                     for best-length = -1
-                     for l = (length query)
-                     when (and (> l best-length) (p4-startswith string query))
-                     do (setq best-length l best-results results)
-                     finally return best-results))
+               (cl-loop for (query timestamp results annotations) in cache
+			for best-results = nil
+			for best-length = -1
+			for l = (length query)
+			when (and (> l best-length) (p4-startswith string query))
+			do (setq best-length l best-results results)
+			finally return best-results))
           ;; Fetch from depot and update cache.
           (let* ((fetch-fn (or (p4-completion-fetch-completions-fn completion)
                                'p4-fetch-completions))
@@ -2969,8 +2969,8 @@ is NIL, otherwise return NIL."
 
 (defun p4-cache-cleanup ()
   "Empty all the completion caches."
-  (loop for (type . completion) in p4-all-completions
-        do (setf (p4-completion-cache completion) nil)))
+  (cl-loop for (type . completion) in p4-all-completions
+           do (setf (p4-completion-cache completion) nil)))
 
 (defun p4-partial-cache-cleanup (completion-type)
   "Cleanup a specific completion cache."
@@ -3726,7 +3726,7 @@ This is the value of `next-error-function' in P4 Grep buffers."
 
 ;;; Hooks:
 
-(add-hook 'find-file-hooks 'p4-update-status)
+(add-hook 'find-file-hook 'p4-update-status)
 
 ;(add-to-list 'file-name-handler-alist '("\\`//\\(?:[^/#@ \t\n]+/\\)+[^/#@ \t\n]*\\(?:#[1-9][0-9]*\\|@[^/#@ \n\t]+\\)?$" . p4-file-name-handler))
 
